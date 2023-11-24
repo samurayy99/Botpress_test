@@ -1,39 +1,56 @@
-const fs = require('fs');
+const fs = require('fs').promises; // Use the Promise-based version of the fs module
 const path = require('path');
 
 class MemoryManager {
   constructor(memoryFilePath) {
     this.memoryFilePath = memoryFilePath;
+    this.initializeMemory();
   }
 
-  loadMemory() {
-    if (fs.existsSync(this.memoryFilePath)) {
-      const data = fs.readFileSync(this.memoryFilePath, 'utf8');
-      return JSON.parse(data);
+  async initializeMemory() {
+    try {
+      if (!await fs.exists(this.memoryFilePath)) {
+        await fs.writeFile(this.memoryFilePath, '{}', 'utf8');
+      }
+    } catch (error) {
+      console.error('Error initializing memory:', error);
     }
-    return {};
   }
 
-  saveMemory(memory) {
-    const data = JSON.stringify(memory, null, 2);
-    fs.writeFileSync(this.memoryFilePath, data, 'utf8');
+  async loadMemory() {
+    try {
+      const data = await fs.readFile(this.memoryFilePath, 'utf8');
+      return JSON.parse(data);
+    } catch (error) {
+      console.error('Error loading memory:', error);
+      return {}; // Fallback to empty memory
+    }
   }
 
-  getMemoryItem(key) {
-    const memory = this.loadMemory();
+  async saveMemory(memory) {
+    try {
+      const data = JSON.stringify(memory, null, 2);
+      await fs.writeFile(this.memoryFilePath, data, 'utf8');
+    } catch (error) {
+      console.error('Error saving memory:', error);
+    }
+  }
+
+  async getMemoryItem(key) {
+    const memory = await this.loadMemory();
     return memory[key];
   }
 
-  updateMemoryItem(key, value) {
-    const memory = this.loadMemory();
+  async updateMemoryItem(key, value) {
+    const memory = await this.loadMemory();
     memory[key] = value;
-    this.saveMemory(memory);
+    await this.saveMemory(memory);
   }
 
-  deleteMemoryItem(key) {
-    const memory = this.loadMemory();
+  async deleteMemoryItem(key) {
+    const memory = await this.loadMemory();
     delete memory[key];
-    this.saveMemory(memory);
+    await this.saveMemory(memory);
   }
 
   // Additional methods for more complex memory operations can be added here

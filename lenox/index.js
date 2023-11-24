@@ -14,33 +14,49 @@ const memoryManager = new MemoryManager('path/to/memory.json');
 const bp = new BotpressSDK();
 
 bp.hear(/.*/, async (event) => {
-  const userMessage = event.text;
-  const userId = event.target;
+  try {
+    const userMessage = sanitizeInput(event.text);
+    const userId = event.target;
 
-  // Process the message
-  const finalResponse = await handleMessage(userMessage, userId);
+    // Process the message
+    const finalResponse = await handleMessage(userMessage, userId);
 
-  // Send the response back to the user
-  await bp.reply(event, finalResponse);
+    // Send the response back to the user
+    await bp.reply(event, finalResponse);
+  } catch (error) {
+    console.error('Error in message processing:', error);
+    await bp.reply(event, 'I encountered an error, please try again.');
+  }
 });
 
 async function handleMessage(userMessage, userId) {
-  // Memory and Language Handling
-  const userMemory = memoryManager.getMemoryItem(userId) || {};
-  const detectedLanguage = await multilingualSupport.detectLanguage(userMessage);
-  multilingualSupport.setLocale(detectedLanguage);
-  const translatedMessage = await multilingualSupport.translateText(userMessage, 'en');
+  try {
+    // Memory and Language Handling
+    const userMemory = await memoryManager.getMemoryItem(userId) || {};
+    const detectedLanguage = await multilingualSupport.detectLanguage(userMessage) || 'en';
+    multilingualSupport.setLocale(detectedLanguage);
+    const translatedMessage = await multilingualSupport.translateText(userMessage, 'en');
 
-  // GPT and/or WebCrawler Processing
-  const gptResponse = await gptIntegration.getGPTResponse(translatedMessage);
-  // WebCrawler integration logic can be added here
+    // GPT and/or WebCrawler Processing
+    const context = userMemory.lastInteraction ? userMemory.lastInteraction.response : '';
+    const gptResponse = await gptIntegration.getGPTResponse(context + translatedMessage);
+    // WebCrawler integration logic can be added here
 
-  // Translate response back to user's language and update memory
-  const finalResponse = await multilingualSupport.translateText(gptResponse, detectedLanguage);
-  userMemory.lastInteraction = { message: userMessage, response: finalResponse };
-  memoryManager.updateMemoryItem(userId, userMemory);
+    // Translate response back to user's language and update memory
+    const finalResponse = await multilingualSupport.translateText(gptResponse, detectedLanguage);
+    userMemory.lastInteraction = { message: userMessage, response: finalResponse };
+    await memoryManager.updateMemoryItem(userId, userMemory);
 
-  return finalResponse;
+    return finalResponse;
+  } catch (error) {
+    console.error('Error in handleMessage:', error);
+    return 'I am having trouble understanding, could you rephrase?';
+  }
+}
+
+function sanitizeInput(input) {
+  // Input sanitization logic here
+  return input;
 }
 
 // Additional Botpress event handlers and logic

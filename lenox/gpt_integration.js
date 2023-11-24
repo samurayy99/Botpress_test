@@ -1,44 +1,60 @@
-const axios = require('axios');
+const { OpenAIAPI } = require('some-openai-api-wrapper'); // Replace with actual OpenAI API wrapper
+const MemoryManager = require('./memory_manager');
 
 class GPTIntegration {
-  constructor(apiKey, endpoint) {
-    this.apiKey = apiKey;
-    this.endpoint = endpoint;
+  constructor(apiKey, memoryManager) {
+    this.api = new OpenAIAPI(apiKey);
+    this.memoryManager = memoryManager;
   }
 
-  async getGPTResponse(prompt, options = {}) {
-    const defaultOptions = {
-      max_tokens: 150,
-      temperature: 0.7,
-      top_p: 1,
-      presence_penalty: 0,
-      frequency_penalty: 0,
-      best_of: 1,
-      n: 1,
-      stop: null,
-    };
-
-    const requestOptions = { ...defaultOptions, ...options };
-
+  async generateResponse(userInput) {
     try {
-      const response = await axios.post(this.endpoint, {
-        prompt: prompt,
-        ...requestOptions,
-      }, {
-        headers: {
-          'Authorization': `Bearer ${this.apiKey}`,
-          'Content-Type': 'application/json'
-        }
-      });
+      // Sanitize userInput before sending
+      const sanitizedInput = this.sanitizeInput(userInput);
 
-      return response.data.choices[0].text.trim();
+      // Retrieve context from memory
+      const context = await this.memoryManager.getMemoryItem('context');
+
+      // Prepare GPT request
+      const gptRequest = this.prepareGPTRequest(sanitizedInput, context);
+
+      // Call GPT API
+      const response = await this.api.callGPT(gptRequest);
+
+      // Post-process GPT response
+      const processedResponse = this.processGPTResponse(response);
+
+      // Update memory with new context
+      await this.memoryManager.updateMemoryItem('context', processedResponse.newContext);
+
+      return processedResponse.text;
     } catch (error) {
-      console.error('Error in GPT integration:', error);
-      return 'I'm sorry, I couldn't process that request.';
+      console.error('GPT Integration error:', error);
+      // Implement fallback strategy
+      return 'I am having trouble understanding, could you rephrase?';
     }
   }
 
-  // Additional methods for custom functionalities and error handling
+  sanitizeInput(input) {
+    // Sanitization logic here
+    return input;
+  }
+
+  prepareGPTRequest(input, context) {
+    // Prepare and return GPT request parameters
+    return {
+      prompt: `${context} ${input}`,
+      // Other parameters like temperature, max_tokens, etc.
+    };
+  }
+
+  processGPTResponse(response) {
+    // Post-process response from GPT and return processed data
+    return {
+      text: response, // Modify as needed
+      newContext: response // Update context as needed
+    };
+  }
 }
 
 module.exports = GPTIntegration;
