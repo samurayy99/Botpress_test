@@ -1,12 +1,15 @@
-require('dotenv').config();
-const OpenAI = require('openai');
+require('dotenv').config({ path: '../.env' });
+const { Bot } = require('@botpress/sdk');
 
+const WebCrawler = require('./web_crawler');
+const MultilingualSupport = require('./multilingual');
+const GPTIntegration = require('./gpt_integration');
+const MemoryManager = require('./memory_manager');
 
-import { Bot } from '@botpress/sdk';
-import WebCrawler from './web_crawler';
-import MultilingualSupport from './multilingual';
-import GPTIntegration from './gpt_integration';
-import MemoryManager from './memory_manager';
+// Checking for required environment variables
+if (!process.env.OPENAI_API_KEY) {
+  throw new Error('The OPENAI_API_KEY environment variable is not set.');
+}
 
 // Initialize components
 const webCrawler = new WebCrawler();
@@ -17,16 +20,16 @@ const memoryManager = new MemoryManager('path/to/memory.json');
 // Botpress SDK setup
 const bp = new Bot();
 
-bp.hear(/.*/, async (event) => {
+bp.message("", async ({ message, client, ctx }) => {
   try {
-    const userMessage = sanitizeInput(event.text);
-    const userId = event.target;
+    const userMessage = sanitizeInput(message.text);
+    const userId = client.id;
 
     const finalResponse = await handleMessage(userMessage, userId);
-    await bp.reply(event, finalResponse);
+    await bp.reply(client, finalResponse);
   } catch (error) {
     console.error('Error in message processing:', error);
-    await bp.reply(event, 'I encountered an error, please try again.');
+    await bp.reply(client, 'I encountered an error, please try again.');
   }
 });
 
