@@ -1,19 +1,21 @@
-const BotpressSDK = require('botpress/sdk');
-const WebCrawler = require('./web_crawler');
-const MultilingualSupport = require('./multilingual');
-const GPTIntegration = require('./gpt_integration');
-const MemoryManager = require('./memory_manager');
-const WebCrawlerAIIntegration = require('./web_crawler_ai_integration');
+require('dotenv').config();
+const OpenAI = require('openai');
+
+
+import { Bot } from '@botpress/sdk';
+import WebCrawler from './web_crawler';
+import MultilingualSupport from './multilingual';
+import GPTIntegration from './gpt_integration';
+import MemoryManager from './memory_manager';
 
 // Initialize components
 const webCrawler = new WebCrawler();
-const webCrawlerAI = new WebCrawlerAIIntegration();
 const multilingualSupport = new MultilingualSupport();
-const gptIntegration = new GPTIntegration('YOUR_GPT_API_KEY', 'YOUR_GPT_API_ENDPOINT');
+const gptIntegration = new GPTIntegration(process.env.OPENAI_API_KEY, 'https://api.openai.com/v1/chat/completions');
 const memoryManager = new MemoryManager('path/to/memory.json');
 
 // Botpress SDK setup
-const bp = new BotpressSDK();
+const bp = new Bot();
 
 bp.hear(/.*/, async (event) => {
   try {
@@ -28,6 +30,7 @@ bp.hear(/.*/, async (event) => {
   }
 });
 
+
 async function handleMessage(userMessage, userId) {
   try {
     const userMemory = await memoryManager.getMemoryItem(userId) || {};
@@ -37,7 +40,7 @@ async function handleMessage(userMessage, userId) {
     const translatedMessage = await multilingualSupport.translateText(userMessage, 'en');
 
     // Web Crawling for real-time information
-    const webData = await webCrawlerAI.getPrioritizedWebData(userMessage);
+    const webData = await webCrawler.crawl('your_target_url');
 
     // Contextual and web data integration for GPT response
     const context = userMemory.lastInteraction ? userMemory.lastInteraction.response : '';

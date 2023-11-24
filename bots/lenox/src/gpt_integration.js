@@ -1,11 +1,9 @@
-const gpt3 = require('gpt-3-api');
-const gpt4 = require('gpt-4-api');
+const openai = require('openai');
 const MemoryManager = require('./memory_manager');
 
 class GPTIntegration {
   constructor(apiKey, memoryManager) {
-    this.gpt3Client = new gpt3.Client({ apiKey });
-    this.gpt4Client = new gpt4.Client({ apiKey });
+    this.openaiClient = new openai.OpenAI(apiKey);
     this.memoryManager = memoryManager;
   }
 
@@ -13,12 +11,16 @@ class GPTIntegration {
     try {
       const sanitizedInput = this.sanitizeInput(userInput);
       const context = await this.memoryManager.getMemoryItem('context');
-      const client = engine === 'gpt-3' ? this.gpt3Client : this.gpt4Client;
 
-      const response = await client.request({
-        action: 'text-davinci',
-        prompt: `${context} ${sanitizedInput}`,
-        maxTokens: 1024
+      const response = await this.openaiClient.chat.completions.create({
+        model: engine,
+        messages: [{
+          role: 'system',
+          content: context
+        }, {
+          role: 'user',
+          content: sanitizedInput
+        }]
       });
 
       const processedResponse = this.processGPTResponse(response);
@@ -36,7 +38,7 @@ class GPTIntegration {
   }
 
   processGPTResponse(response) {
-    const text = response.choices[0].text.trim();
+    const text = response.choices[0].message.content.trim();
     return {
       text: text,
       newContext: text
